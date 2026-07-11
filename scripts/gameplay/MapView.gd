@@ -4,17 +4,21 @@ class_name MapView
 signal territory_pressed(territory_id: String)
 
 const TerritoryViewScript := preload("res://scripts/gameplay/TerritoryView.gd")
+const MapOverlayScript := preload("res://scripts/gameplay/MapOverlay.gd")
 
 var map_data: Dictionary = {}
+var gang_info: Dictionary = {}
 var gang_colors: Dictionary = {}
 var center_by_id: Dictionary = {}
 var territory_views: Dictionary = {}
-var active_waves: Array = []
+var overlay: MapOverlay
 var active_battles: Dictionary = {}
+var selected_source_id := ""
+var valid_target_ids: Array = []
 
 func setup(data: Dictionary, gang_data: Dictionary, localization: LocalizationManager) -> void:
 	map_data = data
-	_build_gang_colors(gang_data)
+	_build_gang_info(gang_data)
 	_clear_territories()
 	center_by_id.clear()
 
@@ -27,7 +31,7 @@ func setup(data: Dictionary, gang_data: Dictionary, localization: LocalizationMa
 		add_child(view)
 		view.setup(
 			territory,
-			Color(gang_colors.get(owner_id, Color.GRAY)),
+			_owner_info(owner_id),
 			localization.translate(String(territory.get("display_name_key", territory_id)))
 		)
 		view.territory_pressed.connect(func(id: String) -> void:
@@ -35,24 +39,35 @@ func setup(data: Dictionary, gang_data: Dictionary, localization: LocalizationMa
 		)
 		territory_views[territory_id] = view
 
+	overlay = MapOverlayScript.new()
+	add_child(overlay)
+	overlay.setup(center_by_id, gang_colors)
+
 	queue_redraw()
 
 func update_territory(territory_id: String, territory: Dictionary) -> void:
 	if not territory_views.has(territory_id):
 		return
 	var view: TerritoryView = territory_views[territory_id]
-	view.set_owner_color(_owner_color(int(territory.get("owner_id", 0))))
+	var owner_id := int(territory.get("owner_id", 0))
+	view.set_owner_info(owner_id, _owner_info(owner_id))
 	view.set_population(float(territory.get("population", 0.0)))
 	view.set_state(String(territory.get("current_state", "neutral")))
 
 func set_selected(territory_id: String) -> void:
-	for id in territory_views.keys():
-		var view: TerritoryView = territory_views[id]
-		view.set_selected(String(id) == territory_id)
+	selected_source_id = territory_id
+	_apply_interaction_states()
+
+func set_targeting(source_id: String, target_ids: Array) -> void:
+	selected_source_id = source_id
+	valid_target_ids = target_ids.duplicate()
+	_apply_interaction_states()
+	if overlay != null:
+		overlay.set_targeting(selected_source_id, valid_target_ids)
 
 func set_waves(waves: Array) -> void:
-	active_waves = waves.duplicate(true)
-	queue_redraw()
+	if overlay != null:
+		overlay.set_waves(waves)
 
 func set_battles(battles: Dictionary) -> void:
 	active_battles = battles.duplicate(true)
@@ -74,62 +89,80 @@ func set_battles(battles: Dictionary) -> void:
 		)
 
 func _draw() -> void:
-	_draw_connections()
-	_draw_waves()
+	_draw_city_background()
 
-func _draw_connections() -> void:
-	var drawn := {}
-	for territory in map_data.get("territories", []):
-		var territory_id := String(territory.get("territory_id", ""))
-		var start: Vector2 = center_by_id.get(territory_id, Vector2.ZERO)
-		for neighbor_id in territory.get("neighbor_ids", []):
-			var neighbor := String(neighbor_id)
-			var pair := [territory_id, neighbor]
-			pair.sort()
-			var key := "%s:%s" % [pair[0], pair[1]]
-			if drawn.has(key):
-				continue
-			drawn[key] = true
-			var end: Vector2 = center_by_id.get(neighbor, Vector2.ZERO)
-			draw_line(start, end, Color(0.22, 0.25, 0.30), 3.0, true)
-			draw_circle(start.lerp(end, 0.5), 3.0, Color(0.42, 0.48, 0.58))
+func _draw_city_background() -> void:
+	draw_rect(Rect2(0, 0, 390, 844), Color(0.035, 0.045, 0.065), true)
 
-func _draw_waves() -> void:
-	for wave in active_waves:
-		var source_id := String(wave.get("source_id", ""))
-		var target_id := String(wave.get("target_id", ""))
-		if not center_by_id.has(source_id) or not center_by_id.has(target_id):
-			continue
+	var city_shadow := PackedVector2Array([
+		Vector2(32, 118), Vector2(336, 124), Vector2(372, 224), Vector2(374, 690),
+		Vector2(324, 760), Vector2(44, 742), Vector2(12, 636), Vector2(20, 184)
+	])
+	draw_colored_polygon(city_shadow, Color(0.07, 0.085, 0.11, 0.72))
 
-		var start: Vector2 = center_by_id[source_id]
-		var end: Vector2 = center_by_id[target_id]
-		var progress := clampf(float(wave.get("progress", 0.0)), 0.0, 1.0)
-		var owner_id := int(wave.get("owner_id", 0))
-		var color := _owner_color(owner_id)
-		var dot_count := clampi(int(float(wave.get("amount", 1)) / 7.0) + 2, 2, 7)
+	var river := PackedVector2Array([
+		Vector2(154, 116), Vector2(176, 190), Vector2(164, 292), Vector2(196, 384),
+		Vector2(174, 488), Vector2(214, 598), Vector2(198, 742)
+	])
+	draw_polyline(river, Color(0.10, 0.20, 0.28, 0.50), 18.0, true)
+	draw_polyline(river, Color(0.26, 0.58, 0.72, 0.16), 3.0, true)
 
-		for index in range(dot_count):
-			var offset := float(index) * 0.045
-			var dot_progress := clampf(progress - offset, 0.0, 1.0)
-			if dot_progress <= 0.0 or dot_progress >= 1.0:
-				continue
-			var position := start.lerp(end, dot_progress)
-			draw_circle(position, 4.0, color)
-			draw_circle(position, 6.0, Color(color.r, color.g, color.b, 0.18))
+	var avenue_color := Color(0.36, 0.40, 0.48, 0.16)
+	draw_line(Vector2(38, 388), Vector2(356, 438), avenue_color, 6.0, true)
+	draw_line(Vector2(66, 112), Vector2(300, 742), avenue_color, 4.0, true)
+	draw_line(Vector2(24, 602), Vector2(358, 604), avenue_color, 5.0, true)
+	draw_line(Vector2(280, 130), Vector2(306, 742), avenue_color, 4.0, true)
 
-func _build_gang_colors(gang_data: Dictionary) -> void:
+	for index in range(18):
+		var x := 28.0 + float((index * 47) % 320)
+		var y := 124.0 + float((index * 83) % 570)
+		var w := 16.0 + float(index % 3) * 7.0
+		var h := 8.0 + float(index % 4) * 5.0
+		draw_rect(Rect2(Vector2(x, y), Vector2(w, h)), Color(0.75, 0.80, 0.88, 0.035), false, 1.0)
+
+	draw_circle(Vector2(78, 646), 44.0, Color(0.12, 0.28, 0.22, 0.22))
+	draw_circle(Vector2(78, 646), 27.0, Color(0.14, 0.34, 0.24, 0.16))
+
+func _apply_interaction_states() -> void:
+	var has_selection := not selected_source_id.is_empty()
+	for id in territory_views.keys():
+		var territory_id := String(id)
+		var is_selected := territory_id == selected_source_id
+		var is_valid := valid_target_ids.has(territory_id)
+		var is_dimmed := has_selection and not is_selected and not is_valid
+		var view: TerritoryView = territory_views[territory_id]
+		view.set_interaction_state(is_selected, is_valid, is_dimmed)
+
+func _build_gang_info(gang_data: Dictionary) -> void:
+	gang_info.clear()
 	gang_colors.clear()
 	for gang in gang_data.get("gangs", []):
 		var id := int(gang.get("id", 0))
-		gang_colors[id] = Color.html(String(gang.get("color", "#9BA3AE")))
+		var color := Color.html(String(gang.get("color", "#9BA3AE")))
+		gang_info[id] = {
+			"color": color,
+			"emblem": String(gang.get("emblem", "--")),
+			"motif": String(gang.get("motif", "neutral")),
+			"name_key": String(gang.get("name_key", ""))
+		}
+		gang_colors[id] = color
+
+func _owner_info(owner_id: int) -> Dictionary:
+	return gang_info.get(owner_id, {
+		"color": Color.GRAY,
+		"emblem": "--",
+		"motif": "neutral",
+		"name_key": ""
+	})
 
 func _owner_color(owner_id: int) -> Color:
-	return Color(gang_colors.get(owner_id, Color.GRAY))
+	return Color(_owner_info(owner_id).get("color", Color.GRAY))
 
 func _clear_territories() -> void:
 	for child in get_children():
 		child.queue_free()
 	territory_views.clear()
+	overlay = null
 
 func _vector_from_array(raw: Variant) -> Vector2:
 	if raw is Array and raw.size() >= 2:

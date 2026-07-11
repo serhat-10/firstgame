@@ -7,6 +7,9 @@ signal wave_data_changed(waves: Array)
 signal battle_data_changed(battles: Dictionary)
 signal match_status_changed(status_key: String)
 signal gang_count_changed(count: int)
+signal player_influence_changed(influence: int)
+signal targeting_changed(source_id: String, valid_target_ids: Array)
+signal send_fraction_changed(fraction: float)
 signal match_ended(result_key: String)
 signal feedback_event(event_name: String, payload: Dictionary)
 
@@ -21,6 +24,7 @@ var active_waves: Array = []
 var active_battles: Dictionary = {}
 var selected_id := ""
 var player_gang_id := 1
+var selected_send_fraction := 0.5
 var elapsed_time := 0.0
 var is_paused := false
 var match_over := false
@@ -31,6 +35,7 @@ func setup(balance_config: Dictionary, loaded_map_data: Dictionary, loaded_gang_
 	map_data = loaded_map_data
 	gang_data = loaded_gang_data
 	player_gang_id = int(balance.get("player_gang_id", 1))
+	selected_send_fraction = float(balance.get("send_fraction", 0.5))
 
 func start_new_match() -> void:
 	_reset_runtime()
@@ -38,6 +43,7 @@ func start_new_match() -> void:
 	_emit_full_state()
 	emit_signal("match_status_changed", "GAME_RUNNING")
 	emit_signal("gang_count_changed", get_active_gang_count())
+	emit_signal("send_fraction_changed", selected_send_fraction)
 
 func load_from_save(save_data: Dictionary) -> bool:
 	if int(save_data.get("version", 0)) != SAVE_VERSION:
@@ -49,6 +55,7 @@ func load_from_save(save_data: Dictionary) -> bool:
 	_build_initial_territories()
 	elapsed_time = float(save_data.get("elapsed_time", 0.0))
 	player_gang_id = int(save_data.get("player_gang_id", player_gang_id))
+	selected_send_fraction = float(save_data.get("selected_send_fraction", selected_send_fraction))
 
 	for saved_territory in save_data.get("territories", []):
 		var territory_id := String(saved_territory.get("territory_id", ""))
@@ -63,6 +70,7 @@ func load_from_save(save_data: Dictionary) -> bool:
 	_emit_full_state()
 	emit_signal("match_status_changed", "GAME_RUNNING")
 	emit_signal("gang_count_changed", get_active_gang_count())
+	emit_signal("send_fraction_changed", selected_send_fraction)
 	return true
 
 func _process(delta: float) -> void:
@@ -102,15 +110,26 @@ func handle_player_territory_pressed(territory_id: String) -> void:
 		_select_territory(territory_id)
 		return
 
-	if request_send(selected_id, territory_id, player_gang_id):
+	if request_send(selected_id, territory_id, player_gang_id, selected_send_fraction):
 		_select_territory("")
 
-func request_send(source_id: String, target_id: String, owner_id: int) -> bool:
+func set_send_fraction(fraction: float) -> void:
+	var options: Array = balance.get("send_fraction_options", [0.25, 0.5, 0.75, 1.0])
+	var safe_fraction := clampf(fraction, 0.25, 1.0)
+	if not options.has(safe_fraction):
+		safe_fraction = float(balance.get("send_fraction", 0.5))
+	selected_send_fraction = safe_fraction
+	emit_signal("send_fraction_changed", selected_send_fraction)
+
+func request_send(source_id: String, target_id: String, owner_id: int, send_fraction_override: float = -1.0) -> bool:
 	if is_paused or match_over:
 		return false
 	if not territories.has(source_id) or not territories.has(target_id):
 		return false
 	if active_battles.has(source_id) or active_battles.has(target_id):
+		emit_signal("match_status_changed", "GAME_TARGET_BUSY")
+		return false
+	if _has_active_wave_between(source_id, target_id, owner_id):
 		emit_signal("match_status_changed", "GAME_TARGET_BUSY")
 		return false
 
@@ -121,9 +140,13 @@ func request_send(source_id: String, target_id: String, owner_id: int) -> bool:
 		emit_signal("match_status_changed", "GAME_INVALID_NEIGHBOR")
 		return false
 
+	var effective_fraction := send_fraction_override
+	if effective_fraction <= 0.0:
+		effective_fraction = float(balance.get("send_fraction", 0.5))
+
 	var amount := RulesScript.calculate_send_amount(
 		float(source.get("population", 0.0)),
-		float(balance.get("send_fraction", 0.5))
+		effective_fraction
 	)
 	if amount <= 0:
 		emit_signal("match_status_changed", "GAME_NOT_ENOUGH_UNITS")
@@ -133,6 +156,7 @@ func request_send(source_id: String, target_id: String, owner_id: int) -> bool:
 	source["current_state"] = "sending_units"
 	territories[source_id] = source
 	emit_signal("territory_changed", source_id, source)
+	_emit_player_influence()
 
 	var source_center := _center_for(source_id)
 	var target_center := _center_for(target_id)
@@ -145,6 +169,7 @@ func request_send(source_id: String, target_id: String, owner_id: int) -> bool:
 		"target_id": target_id,
 		"owner_id": owner_id,
 		"amount": amount,
+		"send_fraction": effective_fraction,
 		"elapsed": 0.0,
 		"duration": duration,
 		"progress": 0.0
@@ -175,6 +200,7 @@ func to_save_dict(ai_state: Dictionary = {}, settings_snapshot: Dictionary = {})
 		"version": SAVE_VERSION,
 		"map_id": String(map_data.get("map_id", "")),
 		"player_gang_id": player_gang_id,
+		"selected_send_fraction": selected_send_fraction,
 		"elapsed_time": elapsed_time,
 		"territories": saved_territories,
 		"ai": ai_state,
@@ -209,6 +235,13 @@ func get_active_gang_count() -> int:
 func get_player_gang_id() -> int:
 	return player_gang_id
 
+func get_owner_total_population(owner_id: int) -> int:
+	var total := 0.0
+	for territory in territories.values():
+		if int(territory.get("owner_id", 0)) == owner_id:
+			total += float(territory.get("population", 0.0))
+	return int(round(total))
+
 func get_debug_summary() -> Dictionary:
 	var state := "paused" if is_paused else "running"
 	if match_over:
@@ -230,6 +263,7 @@ func _reset_runtime() -> void:
 	match_over = false
 	growth_emit_timer = 0.0
 	emit_signal("selection_changed", "")
+	emit_signal("targeting_changed", "", [])
 	emit_signal("wave_data_changed", active_waves)
 	emit_signal("battle_data_changed", active_battles)
 
@@ -249,12 +283,15 @@ func _emit_full_state() -> void:
 	for territory_id in territories.keys():
 		emit_signal("territory_changed", territory_id, territories[territory_id])
 	emit_signal("selection_changed", selected_id)
+	emit_signal("targeting_changed", selected_id, _valid_targets_for(selected_id))
 	emit_signal("wave_data_changed", active_waves)
 	emit_signal("battle_data_changed", active_battles)
+	_emit_player_influence()
 
 func _select_territory(territory_id: String) -> void:
 	selected_id = territory_id
 	emit_signal("selection_changed", selected_id)
+	emit_signal("targeting_changed", selected_id, _valid_targets_for(selected_id))
 	if selected_id.is_empty():
 		emit_signal("match_status_changed", "GAME_SELECT_OWN")
 	else:
@@ -293,6 +330,9 @@ func _update_growth(delta: float) -> void:
 
 		if should_emit:
 			emit_signal("territory_changed", territory_id, territory)
+
+	if should_emit:
+		_emit_player_influence()
 
 func _update_waves(delta: float) -> void:
 	if active_waves.is_empty():
@@ -334,6 +374,7 @@ func _finish_wave(wave: Dictionary) -> void:
 		target["current_state"] = "controlled"
 		territories[target_id] = target
 		emit_signal("territory_changed", target_id, target)
+		_emit_player_influence()
 		return
 
 	_start_battle(target_id, owner_id, amount)
@@ -423,6 +464,7 @@ func _update_battles(delta: float) -> void:
 			finished.append(target_id)
 
 	emit_signal("battle_data_changed", active_battles)
+	_emit_player_influence()
 
 	for target_id in finished:
 		_finish_battle(target_id)
@@ -472,6 +514,7 @@ func _finish_battle(target_id: String) -> void:
 		"player_gang_id": player_gang_id
 	})
 	emit_signal("gang_count_changed", get_active_gang_count())
+	_emit_player_influence()
 	_check_end_conditions()
 
 func _check_end_conditions() -> void:
@@ -507,3 +550,26 @@ func _center_for(territory_id: String) -> Vector2:
 	if raw is Array and raw.size() >= 2:
 		return Vector2(float(raw[0]), float(raw[1]))
 	return Vector2.ZERO
+
+func _valid_targets_for(source_id: String) -> Array:
+	if source_id.is_empty() or not territories.has(source_id) or active_battles.has(source_id):
+		return []
+
+	var source: Dictionary = territories[source_id]
+	var valid := []
+	for raw_target_id in source.get("neighbor_ids", []):
+		var target_id := String(raw_target_id)
+		if territories.has(target_id) and not active_battles.has(target_id):
+			valid.append(target_id)
+	return valid
+
+func _has_active_wave_between(source_id: String, target_id: String, owner_id: int) -> bool:
+	for wave in active_waves:
+		if String(wave.get("source_id", "")) == source_id \
+			and String(wave.get("target_id", "")) == target_id \
+			and int(wave.get("owner_id", 0)) == owner_id:
+			return true
+	return false
+
+func _emit_player_influence() -> void:
+	emit_signal("player_influence_changed", get_owner_total_population(player_gang_id))

@@ -9,6 +9,7 @@ Saved fields:
 - `version`
 - `map_id`
 - `player_gang_id`
+- `selected_send_fraction`
 - `elapsed_time`
 - `territories`: territory ID, owner ID, population, state
 - `ai`: per-gang AI timers
@@ -17,4 +18,3 @@ Saved fields:
 Settings path: `user://settings.cfg`
 
 Loading is defensive. Missing, corrupt, or unsupported save files return an empty dictionary so the menu can offer a new game instead of crashing.
-

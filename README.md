@@ -1,6 +1,6 @@
-# Territory Strategy MVP
+# District Zero
 
-A lightweight Godot 4 portrait mobile strategy prototype. The first playable milestone includes a data-driven territory map, passive growth, neighbor-only unit sending, moving unit dots, timed numerical battles, capture feedback, simple AI, pause/restart, local save scaffolding, and English/Turkish localization.
+A lightweight Godot 4 portrait mobile strategy vertical slice. The current build presents a 12-district stylized city map with faction control, passive influence growth, neighbor-only unit sending, timed battles, capture feedback, simple AI, pause/restart, local save scaffolding, and English/Turkish localization.
 
 ## Run
 
@@ -38,4 +38,4 @@ godot --headless --path . -s res://tests/smoke_test.gd
 
 ## Current Milestone
 
-This is a first playable vertical slice, not the full 15-20 territory MVP. The implemented test map has 8 territories and all four gang colors so the game loop can be validated quickly.
+This is a visually redesigned vertical slice, not the full 16-territory MVP map. The implemented test map has 12 districts and four faction identities so the intended map, HUD, interaction, and battle direction can be validated.

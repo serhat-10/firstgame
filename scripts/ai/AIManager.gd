@@ -57,7 +57,8 @@ func _try_take_action(gang: Dictionary) -> void:
 	match_manager.request_send(
 		String(best_action.get("source_id", "")),
 		String(best_action.get("target_id", "")),
-		gang_id
+		gang_id,
+		float(balance.get("send_fraction", 0.5))
 	)
 
 func _choose_action(gang_id: int, profile: String) -> Dictionary:
@@ -83,6 +84,9 @@ func _choose_action(gang_id: int, profile: String) -> Dictionary:
 
 			var target := match_manager.get_territory(target_id)
 			if target.is_empty() or int(target.get("owner_id", 0)) == gang_id:
+				continue
+			if int(target.get("owner_id", 0)) == match_manager.get_player_gang_id() \
+				and match_manager.elapsed_time < float(balance.get("ai_player_grace_seconds", 12.0)):
 				continue
 
 			var score := _score_target(source, target, send_amount, profile)
@@ -158,4 +162,3 @@ func _profile_bias(profile: String, target: Dictionary, advantage: float) -> flo
 			return float(target.get("strategic_value", 1.0)) * 1.5
 		_:
 			return 0.0
-

@@ -4,10 +4,7 @@ class_name DebugOverlay
 var label: Label
 
 func _ready() -> void:
-	visible = OS.is_debug_build()
-	if not visible:
-		return
-
+	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	offset_left = 8
@@ -19,6 +16,12 @@ func _ready() -> void:
 	label.add_theme_font_size_override("font_size", 12)
 	label.add_theme_color_override("font_color", Color(0.82, 0.92, 1.0))
 	add_child(label)
+
+func _input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
+		visible = not visible
 
 func update_state(match_manager: MatchManager) -> void:
 	if not visible or label == null or match_manager == null:
@@ -32,4 +35,3 @@ func update_state(match_manager: MatchManager) -> void:
 		int(summary.get("battles", 0)),
 		String(summary.get("state", ""))
 	]
-

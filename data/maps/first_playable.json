@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "map_id": "first_playable",
+  "display_name_key": "MAP_FIRST_PLAYABLE",
+  "territories": [
+    {
+      "territory_id": "harbor",
+      "display_name_key": "TERRITORY_HARBOR",
+      "owner_id": 1,
+      "population": 52,
+      "maximum_population": 90,
+      "growth_rate": 2.6,
+      "neighbor_ids": ["market", "park"],
+      "center_position": [104, 622],
+      "polygon": [[50, 565], [145, 550], [165, 625], [100, 690], [45, 660]],
+      "defense_modifier": 1.0,
+      "strategic_value": 1.0
+    },
+    {
+      "territory_id": "market",
+      "display_name_key": "TERRITORY_MARKET",
+      "owner_id": 0,
+      "population": 22,
+      "maximum_population": 80,
+      "growth_rate": 2.1,
+      "neighbor_ids": ["harbor", "station", "park", "plaza"],
+      "center_position": [201, 610],
+      "polygon": [[155, 548], [235, 550], [252, 610], [202, 670], [150, 630]],
+      "defense_modifier": 1.0,
+      "strategic_value": 1.2
+    },
+    {
+      "territory_id": "station",
+      "display_name_key": "TERRITORY_STATION",
+      "owner_id": 2,
+      "population": 30,
+      "maximum_population": 85,
+      "growth_rate": 2.5,
+      "neighbor_ids": ["market", "ridge"],
+      "center_position": [305, 622],
+      "polygon": [[258, 560], [345, 545], [360, 630], [300, 690], [248, 635]],
+      "defense_modifier": 1.0,
+      "strategic_value": 1.0
+    },
+    {
+      "territory_id": "park",
+      "display_name_key": "TERRITORY_PARK",
+      "owner_id": 0,
+      "population": 18,
+      "maximum_population": 78,
+      "growth_rate": 2.0,
+      "neighbor_ids": ["harbor", "market", "plaza", "garden"],
+      "center_position": [116, 446],
+      "polygon": [[55, 390], [145, 370], [170, 435], [130, 510], [58, 492]],
+      "defense_modifier": 1.05,
+      "strategic_value": 1.3
+    },
+    {
+      "territory_id": "plaza",
+      "display_name_key": "TERRITORY_PLAZA",
+      "owner_id": 0,
+      "population": 26,
+      "maximum_population": 95,
+      "growth_rate": 2.3,
+      "neighbor_ids": ["market", "park", "ridge", "garden", "citadel"],
+      "center_position": [214, 446],
+      "polygon": [[175, 375], [260, 390], [272, 470], [212, 525], [160, 470]],
+      "defense_modifier": 1.1,
+      "strategic_value": 1.7
+    },
+    {
+      "territory_id": "ridge",
+      "display_name_key": "TERRITORY_RIDGE",
+      "owner_id": 0,
+      "population": 20,
+      "maximum_population": 78,
+      "growth_rate": 2.0,
+      "neighbor_ids": ["station", "plaza", "citadel"],
+      "center_position": [312, 452],
+      "polygon": [[278, 390], [356, 402], [355, 485], [300, 530], [270, 468]],
+      "defense_modifier": 1.05,
+      "strategic_value": 1.2
+    },
+    {
+      "territory_id": "garden",
+      "display_name_key": "TERRITORY_GARDEN",
+      "owner_id": 3,
+      "population": 32,
+      "maximum_population": 90,
+      "growth_rate": 2.4,
+      "neighbor_ids": ["park", "plaza", "citadel"],
+      "center_position": [124, 292],
+      "polygon": [[70, 230], [165, 220], [184, 300], [140, 360], [65, 335]],
+      "defense_modifier": 1.15,
+      "strategic_value": 1.4
+    },
+    {
+      "territory_id": "citadel",
+      "display_name_key": "TERRITORY_CITADEL",
+      "owner_id": 4,
+      "population": 28,
+      "maximum_population": 92,
+      "growth_rate": 2.4,
+      "neighbor_ids": ["ridge", "plaza", "garden"],
+      "center_position": [263, 293],
+      "polygon": [[205, 220], [300, 225], [345, 295], [310, 365], [220, 350], [190, 285]],
+      "defense_modifier": 1.1,
+      "strategic_value": 1.4
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "gangs": [
+    {
+      "id": 0,
+      "name_key": "GANG_NEUTRAL",
+      "color": "#9BA3AE",
+      "is_ai": false,
+      "profile": "neutral"
+    },
+    {
+      "id": 1,
+      "name_key": "GANG_PLAYER",
+      "color": "#3DDC97",
+      "is_ai": false,
+      "profile": "player"
+    },
+    {
+      "id": 2,
+      "name_key": "GANG_AGGRESSIVE",
+      "color": "#FF5A5F",
+      "is_ai": true,
+      "profile": "aggressive"
+    },
+    {
+      "id": 3,
+      "name_key": "GANG_DEFENSIVE",
+      "color": "#4D96FF",
+      "is_ai": true,
+      "profile": "defensive"
+    },
+    {
+      "id": 4,
+      "name_key": "GANG_OPPORTUNIST",
+      "color": "#FFC857",
+      "is_ai": true,
+      "profile": "opportunistic"
+    }
+  ]
+}
+

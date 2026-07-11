@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "player_gang_id": 1,
+  "send_fraction": 0.5,
+  "unit_movement_speed": 260.0,
+  "ai_action_interval": 2.2,
+  "ai_min_send_population": 12,
+  "defense_multiplier": 1.0,
+  "battle_min_duration": 0.6,
+  "battle_max_duration": 1.8,
+  "battle_duration_per_unit": 0.009,
+  "growth_emit_interval": 0.15,
+  "autosave_interval": 5.0
+}
+

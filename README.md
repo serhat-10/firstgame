@@ -10,6 +10,24 @@ A lightweight Godot 4 portrait mobile strategy prototype. The first playable mil
 
 The core game uses only local files and `user://` saves. It has no backend, accounts, analytics, ads, or required network dependency.
 
+## Opening The Scene In Godot
+
+If Godot opens to an empty 3D grid, the project is open but the 2D game scene is not selected yet.
+
+To open the playable scene:
+
+1. In the top editor tabs, choose `2D`.
+2. In the FileSystem panel, open `res://scenes/main/Main.tscn`.
+3. Press Play, or press `F5`.
+
+If the FileSystem panel is hidden, use `Scene > Open Scene` and select:
+
+```text
+scenes/main/Main.tscn
+```
+
+You can also run the game directly because `project.godot` already points to `res://scenes/main/Main.tscn` as the main scene.
+
 ## Smoke Test
 
 If Godot is available on your command line:
